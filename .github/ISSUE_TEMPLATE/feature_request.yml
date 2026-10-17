@@ -1,0 +1,10 @@
+name: Feature request
+description: Suggest a backend, guest OS or option.
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you need to run in a sandbox?
+      description: Use neutral examples and no private host details.
+    validations:
+      required: true

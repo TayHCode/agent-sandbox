@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible problem.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include host names, addresses, passwords or keys.
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend and guest OS
+      options:
+        - incus / linux
+        - tart / linux
+        - tart / macos
+        - hyperv / linux
+        - hyperv / windows
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Command you ran and its output
+      description: Remove private host names and paths before sharing.
+    validations:
+      required: true

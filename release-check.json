@@ -1,0 +1,49 @@
+{
+  "exclude": [],
+  "approvals": [],
+  "quickstart": [
+    {
+      "file": "README.md",
+      "line": 23,
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-q"
+      ]
+    },
+    {
+      "file": "README.md",
+      "line": 24,
+      "argv": [
+        "python3",
+        "-m",
+        "sandbox",
+        "--help"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "role": "tests",
+      "file": "CONTRIBUTING.md",
+      "line": 6,
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-q"
+      ]
+    }
+  ]
+}
