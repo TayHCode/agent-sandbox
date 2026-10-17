@@ -1,7 +1,7 @@
 import subprocess
 
 from .backend import Result
-from .actions import parse_action
+from .actions import parse_action, returning_argv
 
 SYSTEM = (
     "You control a disposable Linux VM by proposing one shell command at a time. "
@@ -19,7 +19,7 @@ def drive(backend, vm, task, model_cmd, log=print):
         argv = parse_action(reply.stdout.decode(errors="replace"))
         if argv is None:
             return Result(0, transcript.encode(), b"")
-        r = backend.exec(vm, argv)
+        r = backend.exec(vm, argv if backend.windows else returning_argv(argv))
         out = (r.stdout + r.stderr).decode(errors="replace")
         log(f"$ {' '.join(argv)}\n{out}")
         transcript += f"\n$ {' '.join(argv)}\n[exit {r.returncode}]\n{out}\n"

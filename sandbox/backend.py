@@ -53,6 +53,8 @@ def check(result, what):
 class Backend:
     """One throwaway VM per name. Names are always sbx-<unix time>-<hex>."""
 
+    windows = False
+
     def create(self, vm, image, cpus, memory_mb):
         raise NotImplementedError
 

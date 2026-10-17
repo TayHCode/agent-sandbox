@@ -63,3 +63,13 @@ def parse_action(value):
         if isinstance(value.get(key), (str, dict, list)):
             return parse_action(value[key])
     raise ValueError("no command or finish in model action")
+
+
+RETURN_WITH_MAIN_PROCESS = (
+    'o=$(mktemp); e=$(mktemp); "$@" </dev/null >"$o" 2>"$e" & wait $!; c=$?; '
+    'head -c 1048576 "$o"; head -c 1048576 "$e" >&2; rm -f "$o" "$e"; exit $c'
+)
+
+
+def returning_argv(argv):
+    return ["/bin/bash", "-c", RETURN_WITH_MAIN_PROCESS, "_", *argv]

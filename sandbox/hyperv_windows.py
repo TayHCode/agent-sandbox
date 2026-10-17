@@ -13,6 +13,8 @@ from .settings import WINDOWS_BASE, hyperv_host
 
 
 class HyperVWindows(Backend):
+    windows = True
+
     def __init__(self, host=None):
         self.host = host or hyperv_host()
         self.guests = {}
