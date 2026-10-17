@@ -1,7 +1,9 @@
 import json
 import os
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 
 from .backend import Backend, Result, check
@@ -56,9 +58,10 @@ class Tart(Backend):
         parent = remote.rpartition("/")[0] or "."
         name = remote.rpartition("/")[2]
         packed = check(self.exec(vm, ["tar", "-C", parent, "-cf", "-", name]), "tart exec tar")
-        target = local.rpartition("/")[0] or "."
-        extracted = subprocess.run(["tar", "-xf", "-", "-C", target], input=packed.stdout, capture_output=True)
-        check(Result(extracted.returncode, extracted.stdout, extracted.stderr), "tar extract")
+        with tempfile.TemporaryDirectory() as staging:
+            extracted = subprocess.run(["tar", "-xf", "-", "-C", staging], input=packed.stdout, capture_output=True)
+            check(Result(extracted.returncode, extracted.stdout, extracted.stderr), "tar extract")
+            shutil.move(os.path.join(staging, name), local)
 
     def destroy(self, vm):
         self._tart("stop", vm)

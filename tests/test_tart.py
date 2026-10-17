@@ -52,8 +52,8 @@ class TestTart(Case):
         backend.put("sbx-1-abcdef", str(source), "/tmp/source.txt")
         output = self.tmp_path / "output"
         output.mkdir()
-        backend.get("sbx-1-abcdef", "/tmp/source.txt", str(output / "source.txt"))
-        assert (output / "source.txt").read_text() == "hello"
+        backend.get("sbx-1-abcdef", "/tmp/source.txt", str(output / "renamed.txt"))
+        assert (output / "renamed.txt").read_text() == "hello"
         assert backend.list_owned() == ["sbx-1-abcdef"]
         assert any(stdin for _, stdin in runner.calls)
 
