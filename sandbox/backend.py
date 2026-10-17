@@ -1,3 +1,5 @@
+import os
+import pwd
 import subprocess
 import time
 import uuid
@@ -21,7 +23,23 @@ def created_at(name):
     return int(name[len(PREFIX):].split("-")[0])
 
 
+def invoker():
+    user = os.environ.get("SUDO_USER")
+    return user if os.geteuid() == 0 and user and user != "root" else None
+
+
+def give_to_invoker(path):
+    user = invoker()
+    if user:
+        entry = pwd.getpwnam(user)
+        os.chown(path, entry.pw_uid, entry.pw_gid)
+    return path
+
+
 def sh(argv, stdin=None):
+    user = invoker()
+    if user and argv[0] in ("ssh", "scp"):
+        argv = ["runuser", "-u", user, "--", "env", "HOME=" + pwd.getpwnam(user).pw_dir, *argv]
     p = subprocess.run(argv, input=stdin, capture_output=True)
     return Result(p.returncode, p.stdout, p.stderr)
 

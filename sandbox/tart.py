@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import time
 
-from .backend import Backend, Result, check
+from .backend import Backend, Result, check, sh
 from .settings import tart_prefix
 
 
@@ -24,8 +24,7 @@ class Tart(Backend):
 
     @staticmethod
     def _run(argv, stdin=None):
-        p = subprocess.run(argv, input=stdin, capture_output=True)
-        return Result(p.returncode, p.stdout, p.stderr)
+        return sh(argv, stdin)
 
     def _tart(self, *args, stdin=None):
         return self.runner([*self.remote, f"PATH={REMOTE_PATH} tart " + " ".join(shlex.quote(a) for a in args)], stdin=stdin)

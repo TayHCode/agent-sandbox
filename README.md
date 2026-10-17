@@ -134,7 +134,7 @@ under Apple's license terms.
 
 - There are no timeouts, resource caps or quotas. Use `--cpus` and `--memory`, and run `sandbox gc` after any killed run.
 - Hyper-V guests: only one sandbox at a time for Windows guests (creation refuses while another `sbx-*` VM exists),
-  and Windows guests have no network switch, so they cannot reach the internet.
+  and Windows guests join the host's `Default Switch`, so they reach the internet through the host's NAT.
 - macOS guests: Apple allows at most two macOS VMs at once on one Mac. Only images with the Tart guest agent work,
   such as the Cirrus `macos-*-base` images.
 - The Windows 11 evaluation disk expires on Microsoft's schedule; build a fresh base from a current ISO.

@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .backend import Backend, check, sh
+from .backend import Backend, check, give_to_invoker, sh
 from .settings import hyperv_host
 
 
@@ -63,7 +63,7 @@ class HyperV(Backend):
     def create(self, vm, image, cpus, memory_mb):
         directory = tempfile.TemporaryDirectory(prefix="sandbox-hyperv-")
         self.guests[vm] = dict(directory=directory)
-        root = Path(directory.name)
+        root = Path(give_to_invoker(directory.name))
         check(sh(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(root / "key")]), "keygen")
         iso = self._seed(root, vm, (root / "key.pub").read_text().strip())
         self._ps("prepare", vm)

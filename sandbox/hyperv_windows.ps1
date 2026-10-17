@@ -38,7 +38,7 @@ try {
             if (-not (Test-Path -LiteralPath $base)) { throw "Missing base image: $base" }
             $cpus = [int]::Parse([string]$Request.cpus)
             $memory = [long]::Parse([string]$Request.memory_mb) * 1MB
-            New-VM -Name $name -Generation 2 -MemoryStartupBytes $memory -Path $dir -NoVHD | Out-Null
+            New-VM -Name $name -Generation 2 -MemoryStartupBytes $memory -Path $dir -NoVHD -SwitchName 'Default Switch' | Out-Null
             Set-VM -Name $name -Notes 'sandbox-owned'
             New-VHD -Path $disk -ParentPath $base -Differencing | Out-Null
             $mount = Join-Path $dir 'mount'
@@ -63,7 +63,7 @@ try {
  <settings pass="oobeSystem">
   <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><InputLocale>en-US</InputLocale><SystemLocale>en-US</SystemLocale><UILanguage>en-US</UILanguage><UserLocale>en-US</UserLocale></component>
   <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
-   <OOBE><HideEULAPage>true</HideEULAPage><HideOEMRegistrationScreen>true</HideOEMRegistrationScreen><HideOnlineAccountScreens>true</HideOnlineAccountScreens><HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE><ProtectYourPC>3</ProtectYourPC></OOBE>
+   <OOBE><HideEULAPage>true</HideEULAPage><HideOEMRegistrationScreen>true</HideOEMRegistrationScreen><HideOnlineAccountScreens>true</HideOnlineAccountScreens><HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE><ProtectYourPC>3</ProtectYourPC><SkipMachineOOBE>true</SkipMachineOOBE><SkipUserOOBE>true</SkipUserOOBE></OOBE>
    <AutoLogon><Password><Value>$escapedLogon</Value><PlainText>true</PlainText></Password><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>sandboxadmin</Username></AutoLogon>
    <UserAccounts><LocalAccounts><LocalAccount wcm:action="add"><Password><Value>$escapedLogon</Value><PlainText>true</PlainText></Password><Group>Administrators</Group><Name>sandboxadmin</Name></LocalAccount></LocalAccounts></UserAccounts>
   </component>

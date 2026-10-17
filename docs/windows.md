@@ -41,7 +41,7 @@ explicit shell such as `cmd /c` or `powershell -Command`. First boot runs Window
 
 ## How it works
 
-Each sandbox is a Gen2 VM with 4096 MiB RAM by default, Secure Boot (MicrosoftWindows template), no network switch
+Each sandbox is a Gen2 VM with 4096 MiB RAM by default, Secure Boot (MicrosoftWindows template), NAT networking through the Default Switch
 and no vTPM, on a differencing VHDX whose parent is the base disk. A fresh, never-booted child is mounted only to
 seed an answer file with a random disposable `sandboxadmin` password, which the controller keeps in memory; Windows
 setup necessarily receives it in the answer file, which is removed once PowerShell Direct is ready. Execution uses

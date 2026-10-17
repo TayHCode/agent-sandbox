@@ -1,12 +1,14 @@
 import base64
 import json
 import secrets
+import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 from pathlib import Path
 
-from .backend import Backend, Result, check, sh
+from .backend import Backend, Result, check, give_to_invoker, sh
 from .settings import WINDOWS_BASE, hyperv_host
 
 
@@ -47,8 +49,13 @@ class HyperVWindows(Backend):
         self._ps("stage", vm, stage=stage)
         path = f"C:/sandbox/vms/{vm}/{stage}/payload"
         try:
-            check(sh(["scp", "-r", "-o", "BatchMode=yes", "--", str(local),
-                      f"{self.host}:{path}"]), "upload")
+            with tempfile.TemporaryDirectory() as staging:
+                give_to_invoker(staging)
+                copy = Path(staging) / "payload"
+                (shutil.copytree if Path(local).is_dir() else shutil.copy)(local, copy)
+                give_to_invoker(copy)
+                check(sh(["scp", "-r", "-o", "BatchMode=yes", "--", str(copy),
+                          f"{self.host}:{path}"]), "upload")
             self._ps("put", vm, **self.guests[vm], stage=stage, remote=remote)
         finally:
             self._ps("unstage", vm, stage=stage)
@@ -59,8 +66,11 @@ class HyperVWindows(Backend):
         path = f"C:/sandbox/vms/{vm}/{stage}/payload"
         try:
             self._ps("get", vm, **self.guests[vm], stage=stage, remote=remote)
-            check(sh(["scp", "-r", "-o", "BatchMode=yes", "--",
-                      f"{self.host}:{path}", str(local)]), "download")
+            with tempfile.TemporaryDirectory() as staging:
+                give_to_invoker(staging)
+                check(sh(["scp", "-r", "-o", "BatchMode=yes", "--",
+                          f"{self.host}:{path}", str(Path(staging) / "payload")]), "download")
+                shutil.move(str(Path(staging) / "payload"), local)
         finally:
             self._ps("unstage", vm, stage=stage)
 

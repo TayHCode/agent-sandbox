@@ -1,3 +1,4 @@
+from pathlib import Path
 import base64
 import json
 import re
@@ -47,6 +48,8 @@ class Commands:
                 stdout = json.dumps([VM] if self.exists else []).encode()
         elif self.fail == 'scp':
             code, stderr = 1, b'Copy failed'
+        elif argv[0] == 'scp' and ':' not in argv[-1]:
+            Path(argv[-1]).write_text('x')
         return subprocess.CompletedProcess(argv, code, stdout, stderr)
 
 
@@ -94,6 +97,7 @@ class TestHypervWindows(Case):
         b.create(VM, None, 2, 4096)
         for method in ('put', 'get'):
             if method == 'put':
+                (self.tmp_path / 'a b').write_text('x')
                 b.put(VM, self.tmp_path / 'a b', 'a b')
             else:
                 b.get(VM, 'a b', self.tmp_path / 'a b')
@@ -115,6 +119,7 @@ class TestHypervWindows(Case):
             if failure == 'get':
                 b.get(VM, 'file', self.tmp_path / 'out')
             else:
+                (self.tmp_path / 'in').write_text('x')
                 b.put(VM, self.tmp_path / 'in', 'file')
         assert commands.requests[-1]['action'] == 'unstage'
 
