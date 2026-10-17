@@ -18,7 +18,7 @@ ssh -o BatchMode=yes "$SANDBOX_HYPERV_HOST" 'powershell -NoProfile -Command "Get
    scripts/prep-hyperv-image.sh
    ```
 
-   It writes `.scratch/images/ubuntu-24.04.vhdx`.
+   It writes `.scratch/images/ubuntu-24.04.vhdx` with a 24 GB virtual disk; the guest grows its root partition on first boot.
 
 2. Create the folders and copy the image to the host:
 

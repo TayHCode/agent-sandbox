@@ -18,6 +18,11 @@ class RunAsInvoker(Case):
         self.assertEqual(argv[:5], ['runuser', '-u', 'nobody', '--', 'env'])
         self.assertEqual(argv[-3:], ['ssh', 'example-host', 'true'])
 
+    def test_key_generation_drops_to_the_invoking_user(self):
+        argv = self.calls(['ssh-keygen', '-q', '-f', 'key'], 'nobody', 0)
+        self.assertEqual(argv[:5], ['runuser', '-u', 'nobody', '--', 'env'])
+        self.assertEqual(argv[-3:], ['-q', '-f', 'key'])
+
     def test_other_calls_and_non_root_are_untouched(self):
         self.assertEqual(self.calls(['tar', '-cf', '-'], 'nobody', 0), ['tar', '-cf', '-'])
         self.assertEqual(self.calls(['ssh', 'example-host'], 'nobody', 1000), ['ssh', 'example-host'])

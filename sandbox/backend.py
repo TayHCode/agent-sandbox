@@ -38,7 +38,7 @@ def give_to_invoker(path):
 
 def sh(argv, stdin=None):
     user = invoker()
-    if user and argv[0] in ("ssh", "scp"):
+    if user and argv[0] in ("ssh", "scp", "ssh-keygen"):
         argv = ["runuser", "-u", user, "--", "env", "HOME=" + pwd.getpwnam(user).pw_dir, *argv]
     p = subprocess.run(argv, input=stdin, capture_output=True)
     return Result(p.returncode, p.stdout, p.stderr)

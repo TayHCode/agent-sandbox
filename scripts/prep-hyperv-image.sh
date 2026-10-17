@@ -11,4 +11,5 @@ curl -fL "$base/$name" -o "$name"
 curl -fL "$base/SHA256SUMS" -o SHA256SUMS
 grep -F "*$name" SHA256SUMS | sed 's/\*/ /' | sha256sum --check --status
 /usr/bin/qemu-img convert -p -O vhdx -o subformat=dynamic "$name" ubuntu-24.04.vhdx
+/usr/bin/qemu-img resize ubuntu-24.04.vhdx 24G
 printf '%s\n' 'C:/sandbox/base/ubuntu-24.04.vhdx'

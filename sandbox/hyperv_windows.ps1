@@ -32,7 +32,6 @@ try {
         $locked = $false
         try {
             try { $locked = $mutex.WaitOne() } catch [Threading.AbandonedMutexException] { $locked = $true }
-            if (Get-VM -Name 'sbx-*') { throw 'Another sandbox exists; run gc first' }
             if (Test-Path -LiteralPath $dir) { throw 'Sandbox directory already exists' }
             $base = [string]$Request.image
             if (-not (Test-Path -LiteralPath $base)) { throw "Missing base image: $base" }
