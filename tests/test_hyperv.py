@@ -104,14 +104,15 @@ class TestHyperv(Case):
         assert result.returncode == 7
         assert result.stdout == b"guest output" and result.stderr == b"guest error"
         assert stdin == b"stdin"
-        assert argv[1:3] == ["-J", "hyperv-host"]
+        assert argv[1] == "-o" and argv[2].startswith("ProxyCommand=ssh ")
+        assert "ControlMaster=auto" in argv[2] and "-W %h:%p hyperv-host" in argv[2]
         assert argv[-2:] == ["ubuntu@guest-vm", "printf %s 'a; $(touch /tmp/no)'"]
         assert "IdentitiesOnly=yes" in argv
         assert "ForwardAgent=no" in argv
         key = argv[argv.index("-i") + 1]
         b.put(VM, self.tmp_path / "a b", "/tmp/a b")
         argv, _ = commands.calls[-1]
-        assert argv[:4] == ["scp", "-r", "-J", "hyperv-host"]
+        assert argv[:3] == ["scp", "-r", "-o"] and argv[3].startswith("ProxyCommand=ssh ")
         assert argv[-2:] == [str(self.tmp_path / "a b"), "ubuntu@guest-vm:/tmp/a b"]
         assert argv[argv.index("-i") + 1] == key
         b.get(VM, "/tmp/a b", self.tmp_path / "out")

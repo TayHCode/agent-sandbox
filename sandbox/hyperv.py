@@ -1,12 +1,13 @@
 import base64
 import json
+import pwd
 import shlex
 import shutil
 import tempfile
 import time
 from pathlib import Path
 
-from .backend import Backend, check, give_to_invoker, sh
+from .backend import Backend, check, give_to_invoker, invoker, sh
 from .settings import hyperv_host
 
 
@@ -15,6 +16,14 @@ class HyperV(Backend):
         self.host = host or hyperv_host()
         self.guests = {}
         self.install_attempted = False
+
+    def _shared(self, token="%C"):
+        user = invoker()
+        home = Path(pwd.getpwnam(user).pw_dir) if user else Path.home()
+        mux = home / ".ssh" / "sandbox-mux"
+        mux.mkdir(mode=0o700, parents=True, exist_ok=True)
+        give_to_invoker(mux)
+        return f"-o ControlMaster=auto -o ControlPath={mux}/{token} -o ControlPersist=120"
 
     def _ps(self, action, vm=None, **kwargs):
         request = json.dumps(dict(action=action, vm=vm, **kwargs)).encode()
@@ -91,7 +100,10 @@ class HyperV(Backend):
     def _connection(self, vm):
         guest = self.guests[vm]
         root = Path(guest["directory"].name)
-        return ["-J", self.host, "-i", str(root / "key"), "-o", "IdentitiesOnly=yes",
+        jump = (f"ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "
+                f"-o UserKnownHostsFile={root / 'known_hosts'} {self._shared('%%C')} "
+                f"-W %h:%p {self.host}")
+        return ["-o", f"ProxyCommand={jump}", "-i", str(root / "key"), "-o", "IdentitiesOnly=yes",
                 "-o", "ForwardAgent=no",
                 "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
                 "-o", f"UserKnownHostsFile={root / 'known_hosts'}"], f"ubuntu@{guest['ip']}"

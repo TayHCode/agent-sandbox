@@ -46,9 +46,11 @@ try {
                 if (-not (Test-Path $seed)) { throw "Missing seed ISO: $seed" }
             }
             Invoke-Change 'New-VHD' @{Differencing=$true; ParentPath=$base; Path=$disk}
-            Invoke-Change 'New-VM' @{Name=$name; Generation=2; MemoryStartupBytes=$memory;
+            Invoke-Change 'New-VM' @{Name=$name; Generation=2; MemoryStartupBytes=[long][Math]::Min($memory, 1GB);
                 VHDPath=$disk; SwitchName='Default Switch'}
             Invoke-Change 'Set-VM' @{Name=$name; Notes='sandbox-owned'}
+            Invoke-Change 'Set-VMMemory' @{VMName=$name; DynamicMemoryEnabled=$true;
+                MinimumBytes=[long][Math]::Min($memory, 512MB); MaximumBytes=$memory}
             Invoke-Change 'Set-VMFirmware' @{VMName=$name; EnableSecureBoot='On';
                 SecureBootTemplate='MicrosoftUEFICertificateAuthority'}
             Invoke-Change 'Set-VMProcessor' @{VMName=$name; Count=$cpus}
