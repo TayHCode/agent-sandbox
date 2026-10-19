@@ -12,11 +12,15 @@ from .backend import Backend, Result, check, give_to_invoker, sh
 from .settings import WINDOWS_BASE, hyperv_host
 
 
+STOPPED_GRACE_SECONDS = 120
+
+
 class HyperVWindows(Backend):
     windows = True
 
     def __init__(self, host=None):
         self.host = host or hyperv_host()
+        self.pool = self.host
         self.guests = {}
 
     def _ps(self, action, vm=None, **kwargs):
@@ -35,7 +39,17 @@ class HyperVWindows(Backend):
         self.guests[vm] = dict(password="Aa9!" + secrets.token_hex(32))
         self._ps("create", vm, image=image or WINDOWS_BASE,
                  cpus=str(cpus), memory_mb=str(memory_mb), **self.guests[vm])
-        while not json.loads(self._ps("ready", vm, **self.guests[vm]).stdout):
+        down_since = None
+        while True:
+            state = json.loads(self._ps("ready", vm, **self.guests[vm]).stdout)
+            if state is True:
+                return
+            if state == "stopped":
+                down_since = down_since or time.monotonic()
+                if time.monotonic() - down_since > STOPPED_GRACE_SECONDS:
+                    raise RuntimeError("Sandbox stopped before readiness")
+            else:
+                down_since = None
             time.sleep(1)
 
     def exec(self, vm, argv, stdin=None):
@@ -84,3 +98,6 @@ class HyperVWindows(Backend):
 
     def list_owned(self):
         return json.loads(self._ps("list").stdout)
+
+    def list_leftovers(self):
+        return json.loads(self._ps("leftovers").stdout)

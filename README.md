@@ -6,7 +6,9 @@ hypervisors and three guest operating systems, so an agent can test things on a 
     python3 -m sandbox run --backend incus|tart|hyperv --os linux|macos|windows [options] -- <command...>
 
 The command's exit code is `sandbox`'s exit code. Every VM is named `sbx-<unix time>-<hex>`, and that name is the
-only ownership record, so `gc` is just a list and a delete.
+only ownership record. Each live run also holds a lock file named after its VM (`SANDBOX_LEASE_DIR`, default
+`/var/lib/sandbox/leases` if it exists, else `~/.local/state/sandbox/leases`). The lock dies with the process, so
+`gc` deletes the `sbx-*` VMs whose lease is left behind and never touches anything else.
 
 | Backend | Host it drives | `--os linux` | `--os macos` | `--os windows` |
 |---------|----------------|--------------|--------------|----------------|
@@ -73,8 +75,12 @@ python3 -m sandbox gc --backend hyperv --os windows
 sandbox run   --backend B [--os linux|macos|windows] [--image X] [--cpus N] [--memory MB]
               [--in LOCAL[:REMOTE]] [--out REMOTE[:LOCAL]] [--result-dir DIR] -- <command...>
 sandbox agent --backend B [--os OS] --task "..." --model-cmd "<prompt on stdin, next command on stdout>"
-sandbox gc    --backend B [--os OS] [--older-than MINUTES]
+sandbox gc    --backend B [--os OS] [--dry-run] [--include-unowned]
 ```
+
+`gc` skips VMs that never had a lease (started by something else) unless `--include-unowned`; `--dry-run` only lists.
+Hosts with `<SANDBOX_HOST_SLOTS_DIR>/<host>/limit` cap how many guests run at once; further creates wait for a slot,
+including one-off scripts that call a backend directly. The VM is deleted on pass, fail, exception, SIGTERM and SIGHUP.
 
 `--os` defaults to `linux`. Unsupported combinations fail immediately (for example `--backend incus --os macos`).
 `--image` overrides the backend's default image for the chosen OS.
@@ -133,8 +139,7 @@ under Apple's license terms.
 ## Limitations
 
 - There are no timeouts, resource caps or quotas. Use `--cpus` and `--memory`, and run `sandbox gc` after any killed run.
-- Hyper-V guests: only one sandbox at a time for Windows guests (creation refuses while another `sbx-*` VM exists),
-  and Windows guests join the host's `Default Switch`, so they reach the internet through the host's NAT.
+- Hyper-V guests: Windows guests can run side by side, and they join the host's `Default Switch`, so they reach the internet through the host's NAT.
 - macOS guests: Apple allows at most two macOS VMs at once on one Mac. Only images with the Tart guest agent work,
   such as the Cirrus `macos-*-base` images.
 - The Windows 11 evaluation disk expires on Microsoft's schedule; build a fresh base from a current ISO.

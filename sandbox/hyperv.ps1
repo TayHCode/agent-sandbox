@@ -14,11 +14,31 @@ function Invoke-Change($Command, $Arguments) {
     }
 }
 
+function Start-WhenMemoryFits($Name, $Bytes) {
+    if ($dry) { Invoke-Change 'Start-VM' @{Name=$Name}; return }
+    $gate = New-Object System.Threading.Mutex($false, 'Global\sandbox-vm-start')
+    try { [void]$gate.WaitOne() } catch [System.Threading.AbandonedMutexException] {}
+    try {
+        $needed = $Bytes + 2GB
+        while ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory * 1KB -lt $needed) {
+            Start-Sleep -Seconds 5
+        }
+        Start-VM -Name $Name | Out-Null
+    } finally { $gate.ReleaseMutex() }
+}
+
 try {
     if ($Request.action -eq 'list') {
         $names = @(Get-VM -Name 'sbx-*' | Where-Object Notes -eq 'sandbox-owned' |
             Select-Object -ExpandProperty Name)
         ConvertTo-Json -InputObject $names -Compress
+        return
+    }
+    if ($Request.action -eq 'leftovers') {
+        $found = @(Get-ChildItem 'C:\sandbox\vms' -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { if ($_.Name -match '^(sbx-[0-9]+-[0-9a-f]+)(\.|_|$)') { $Matches[1] } } |
+            Sort-Object -Unique | Where-Object { -not (Get-VM -Name $_ -ErrorAction SilentlyContinue) })
+        ConvertTo-Json -InputObject $found -Compress
         return
     }
     $name = [string]$Request.vm
@@ -46,16 +66,15 @@ try {
                 if (-not (Test-Path $seed)) { throw "Missing seed ISO: $seed" }
             }
             Invoke-Change 'New-VHD' @{Differencing=$true; ParentPath=$base; Path=$disk}
-            Invoke-Change 'New-VM' @{Name=$name; Generation=2; MemoryStartupBytes=[long][Math]::Min($memory, 1GB);
+            Invoke-Change 'New-VM' @{Name=$name; Generation=2; MemoryStartupBytes=$memory;
                 VHDPath=$disk; SwitchName='Default Switch'}
             Invoke-Change 'Set-VM' @{Name=$name; Notes='sandbox-owned'}
-            Invoke-Change 'Set-VMMemory' @{VMName=$name; DynamicMemoryEnabled=$true;
-                MinimumBytes=[long][Math]::Min($memory, 512MB); MaximumBytes=$memory}
+            Invoke-Change 'Set-VMMemory' @{VMName=$name; DynamicMemoryEnabled=$false}
             Invoke-Change 'Set-VMFirmware' @{VMName=$name; EnableSecureBoot='On';
                 SecureBootTemplate='MicrosoftUEFICertificateAuthority'}
             Invoke-Change 'Set-VMProcessor' @{VMName=$name; Count=$cpus}
             Invoke-Change 'Add-VMDvdDrive' @{VMName=$name; Path=$seed}
-            Invoke-Change 'Start-VM' @{Name=$name}
+            Start-WhenMemoryFits $name $memory
         }
         'ip' {
             $ip = @(Get-VMNetworkAdapter -VMName $name | ForEach-Object IPAddresses |

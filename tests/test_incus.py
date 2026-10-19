@@ -33,6 +33,24 @@ class TestIncus(Case):
         assert runner.calls[2][0] == ["incus", "start", "sbx-a"]
         assert runner.calls[3][0][-3:] == ["sbx-a", "--", "true"]
 
+    def test_agent_readiness_poll_retries_every_quarter_second(self):
+        runner = Runner()
+        attempts = []
+        original = runner.__call__
+
+        def flaky(argv, stdin=None):
+            if argv[-2:] == ["--", "true"]:
+                attempts.append(argv)
+                if len(attempts) < 3:
+                    return Result(1, b"", b"not ready")
+            return original(argv, stdin)
+
+        sleeps = []
+        self.monkeypatch.setattr("sandbox.incus.time.sleep", sleeps.append)
+        Incus(flaky).create("sbx-a", None, 3, 2048)
+        assert len(attempts) == 3
+        assert sleeps == [0.25, 0.25]
+
     def test_uses_sudo_when_unaided_probe_fails_and_preserves_exec_result_and_stdin(self):
         runner = Runner(probe_rc=1)
         incus = Incus(runner)

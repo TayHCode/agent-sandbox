@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from sandbox.hyperv import HyperV
+from sandbox.hyperv import INSTALL_TOOLS, HyperV
 from sandbox.run import run
 from tests.support import Case
 
@@ -46,6 +46,8 @@ class Commands:
                 self.exists = False
             elif action == "ip":
                 stdout = json.dumps(self.ips.pop(0)).encode()
+            elif action == "leftovers":
+                stdout = json.dumps([VM]).encode()
             elif action == "list":
                 stdout = json.dumps([VM] if self.exists else []).encode()
         elif argv[0] == "ssh":
@@ -69,6 +71,14 @@ class TestHyperv(Case):
         self.monkeypatch.setattr("sandbox.hyperv.time.sleep", lambda seconds: None)
         self.commands = commands
 
+    def test_leftover_files_without_a_vm_are_listed(self):
+        assert HyperV().list_leftovers() == [VM]
+        assert self.commands.requests[-1]["action"] == "leftovers"
+
+    def test_tools_are_installed_only_when_missing(self):
+        assert INSTALL_TOOLS.startswith('dpkg -s "linux-cloud-tools-$(uname -r)" linux-cloud-tools-virtual')
+        assert INSTALL_TOOLS.index("||") < INSTALL_TOOLS.index("apt-get update")
+
     def test_create_waits_for_ip_and_ssh_and_cleans_key(self):
         commands = self.commands
         b = HyperV()
@@ -76,8 +86,8 @@ class TestHyperv(Case):
         directory = Path(b.guests[VM]["directory"].name)
         config = json.loads((directory / "user-data").read_text().split("\n", 1)[1])
         assert config["hostname"] == VM
-        assert config["packages"] == ["linux-cloud-tools-virtual"]
-        assert config["runcmd"] == [["sh", "-c", 'DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-cloud-tools-$(uname -r)"'],
+        assert "packages" not in config and "package_update" not in config
+        assert config["runcmd"] == [["sh", "-c", INSTALL_TOOLS],
                                    ["udevadm", "control", "--reload-rules"],
                                    ["udevadm", "trigger", "--action=add", "--subsystem-match=misc"],
                                    ["udevadm", "settle"],
@@ -88,7 +98,7 @@ class TestHyperv(Case):
         assert [r["action"] for r in commands.requests] == ["prepare", "create", "ip", "ip"]
         assert commands.requests[1]["cpus"] == "3"
         assert commands.requests[1]["memory_mb"] == "5120"
-        assert commands.requests[1]["image"] == r"C:\sandbox\base\ubuntu-24.04.vhdx"
+        assert commands.requests[1]["image"] == r"C:\sandbox\base\ubuntu-24.04-cloudtools-32g.vhdx"
         assert any(a[-1] == f"hyperv-host:C:/sandbox/vms/{VM}.iso" for a, _ in commands.calls)
         assert any(a[-1] == "cloud-init status --wait --long" for a, _ in commands.calls)
         b.destroy(VM)
@@ -218,3 +228,12 @@ class TestHyperv(Case):
         script = commands.calls[-1][1].decode()
         assert image not in script
         assert commands.requests[-1]["image"] == image
+
+    def test_guest_memory_is_static_at_the_requested_size(self):
+        commands = self.commands
+        b = HyperV()
+        b._ps("create", VM, image="C:\\base.vhdx", cpus="2", memory_mb="4096")
+        script = commands.calls[-1][1].decode()
+        assert "MemoryStartupBytes=$memory;" in script
+        assert "DynamicMemoryEnabled=$false" in script
+        assert "DynamicMemoryEnabled=$true" not in script

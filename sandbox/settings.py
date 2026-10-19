@@ -1,7 +1,7 @@
 import os
 import shlex
 
-WINDOWS_BASE = r"C:\sandbox\base\windows11-eval.vhdx"
+WINDOWS_BASE = r"C:\sandbox\base\windows11-eval-oobe-v2.vhdx"
 
 
 def hyperv_host():

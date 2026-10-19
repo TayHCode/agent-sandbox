@@ -35,7 +35,7 @@ class Incus(Backend):
             result = self._run("exec", vm, "--", "true")
             if result.returncode == 0:
                 return
-            time.sleep(1)
+            time.sleep(0.25)
 
     def exec(self, vm, argv, stdin=None):
         return self._run("exec", vm, "--", *argv, stdin=stdin)

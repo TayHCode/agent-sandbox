@@ -9,6 +9,13 @@ try {
         ConvertTo-Json -InputObject $names -Compress
         return
     }
+    if ($Request.action -eq 'leftovers') {
+        $found = @(Get-ChildItem 'C:\sandbox\vms' -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { if ($_.Name -match '^(sbx-[0-9]+-[0-9a-f]+)(\.|_|$)') { $Matches[1] } } |
+            Sort-Object -Unique | Where-Object { -not (Get-VM -Name $_ -ErrorAction SilentlyContinue) })
+        ConvertTo-Json -InputObject $found -Compress
+        return
+    }
     $name = [string]$Request.vm
     if ($name -notmatch '^sbx-[0-9]+-[0-9a-f]+$') { throw 'Invalid sandbox VM name' }
     $root = 'C:\sandbox\vms'
@@ -49,11 +56,38 @@ try {
                     Sort-Object Size -Descending | Select-Object -First 1
                 Add-PartitionAccessPath -DiskNumber $d.Number -PartitionNumber $part.PartitionNumber -AccessPath ($mount + '\')
                 $state = Get-Content -LiteralPath (Join-Path $mount 'Windows\Setup\State\State.ini') -Raw
-                if ($state -notmatch 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
-                    throw 'Base must be generalized and awaiting OOBE'
-                }
-                $escapedLogon = [Security.SecurityElement]::Escape([string]$Request.password)
-                $unattend = @"
+                $panther = Join-Path $mount 'Windows\Panther'
+                New-Item -ItemType Directory -Path $panther -Force | Out-Null
+                if ($state -match 'IMAGE_STATE_COMPLETE') {
+                    $suffix = $name.Split('-')[-1]
+                    $computer = "SBX-$($suffix.ToUpper())"
+                    $hive = "sbx$suffix"
+                    reg load "HKLM\${hive}_system" (Join-Path $mount 'Windows\System32\config\SYSTEM') | Out-Null
+                    if ($LASTEXITCODE) { throw 'Could not load the guest SYSTEM hive' }
+                    reg load "HKLM\${hive}_software" (Join-Path $mount 'Windows\System32\config\SOFTWARE') | Out-Null
+                    if ($LASTEXITCODE) { reg unload "HKLM\${hive}_system" | Out-Null; throw 'Could not load the guest SOFTWARE hive' }
+                    try {
+                        $control = "Registry::HKEY_LOCAL_MACHINE\${hive}_system\ControlSet001"
+                        Set-ItemProperty -LiteralPath "$control\Control\ComputerName\ComputerName" -Name ComputerName -Value $computer
+                        Set-ItemProperty -LiteralPath "$control\Services\Tcpip\Parameters" -Name 'NV Hostname' -Value $computer
+                        Set-ItemProperty -LiteralPath "$control\Services\Tcpip\Parameters" -Name Hostname -Value $computer
+                        Set-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\${hive}_software\Microsoft\Cryptography" -Name MachineGuid -Value ([guid]::NewGuid().ToString())
+                    } finally {
+                        [GC]::Collect()
+                        [GC]::WaitForPendingFinalizers()
+                        foreach ($key in @("${hive}_system", "${hive}_software")) {
+                            for ($try = 0; $try -lt 10; $try++) {
+                                reg unload "HKLM\$key" | Out-Null
+                                if (-not $LASTEXITCODE) { break }
+                                Start-Sleep -Milliseconds 500
+                            }
+                        }
+                    }
+                    $init = ConvertTo-Json -Compress -InputObject @{ password = [string]$Request.password }
+                    [IO.File]::WriteAllText((Join-Path $panther 'sbx-init.json'), $init, (New-Object Text.UTF8Encoding($false)))
+                } elseif ($state -match 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+                    $escapedLogon = [Security.SecurityElement]::Escape([string]$Request.password)
+                    $unattend = @"
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
  <settings pass="specialize">
@@ -69,16 +103,22 @@ try {
  </settings>
 </unattend>
 "@
-                $panther = Join-Path $mount 'Windows\Panther'
-                New-Item -ItemType Directory -Path $panther -Force | Out-Null
-                [IO.File]::WriteAllText((Join-Path $panther 'unattend.xml'), $unattend, (New-Object Text.UTF8Encoding($false)))
+                    [IO.File]::WriteAllText((Join-Path $panther 'unattend.xml'), $unattend, (New-Object Text.UTF8Encoding($false)))
+                } else {
+                    throw 'Base must be generalized and awaiting OOBE, or finished with OOBE'
+                }
             } finally {
                 if ((Get-VHD -Path $disk).Attached) { Dismount-VHD -Path $disk }
                 Remove-Item -LiteralPath $mount -Force
             }
             Add-VMHardDiskDrive -VMName $name -Path $disk
-            Set-VMFirmware -VMName $name -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows
+            Set-VMFirmware -VMName $name -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows -FirstBootDevice (Get-VMHardDiskDrive -VMName $name)
             Set-VMProcessor -VMName $name -Count $cpus
+            $deadline = (Get-Date).AddMinutes(10)
+            while ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory * 1KB -lt ($memory + 2GB)) {
+                if ((Get-Date) -gt $deadline) { throw 'Not enough free host memory to start the VM' }
+                Start-Sleep -Seconds 5
+            }
             Start-VM -Name $name
         } finally {
             if ($locked) { $mutex.ReleaseMutex() }
@@ -103,8 +143,20 @@ try {
     $credential = New-Object Management.Automation.PSCredential('sandboxadmin',
         (ConvertTo-SecureString ([string]$Request.password) -AsPlainText -Force))
     if ($Request.action -eq 'ready') {
+        $vm = Get-VM -Name $name
+        if ($vm.State.ToString() -ne 'Running') { Write-Output '"stopped"'; return }
+        if ($vm.Heartbeat.ToString() -notlike 'Ok*') { Write-Output 'false'; return }
+        $signalled = $false
+        $component = Get-CimInstance -Namespace 'root\virtualization\v2' -ClassName Msvm_ComputerSystem -Filter "ElementName='$name'" |
+            Get-CimAssociatedInstance -ResultClassName Msvm_KvpExchangeComponent
+        foreach ($item in @($component.GuestExchangeItems)) {
+            $fields = @{}
+            foreach ($property in ([xml]$item).INSTANCE.PROPERTY) { $fields[$property.GetAttribute('NAME')] = [string]$property.VALUE }
+            if ($fields['Name'] -eq 'sbx_ready') { $signalled = $true }
+        }
+        if (-not $signalled -and $vm.Uptime.TotalSeconds -lt 15) { Write-Output 'false'; return }
         try { $session = New-PSSession -VMName $name -Credential $credential } catch {
-            if ((Get-VM -Name $name).State.ToString() -ne 'Running') { throw 'Sandbox stopped before readiness' }
+            if ((Get-VM -Name $name).State.ToString() -ne 'Running') { Write-Output '"stopped"'; return }
             Write-Output 'false'
             return
         }
@@ -117,6 +169,7 @@ try {
                     foreach ($file in @('C:\Windows\Panther\unattend.xml', 'C:\Windows\Panther\Unattend\unattend.xml')) {
                         if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
                     }
+                    Remove-Item -LiteralPath 'C:\Windows\Panther\sbx-init.json' -Force -ErrorAction SilentlyContinue
                     $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
                     Set-ItemProperty -LiteralPath $key -Name AutoAdminLogon -Value '0'
                     Remove-ItemProperty -LiteralPath $key -Name DefaultPassword -ErrorAction SilentlyContinue

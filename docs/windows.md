@@ -48,7 +48,7 @@ setup necessarily receives it in the answer file, which is removed once PowerShe
 PowerShell Direct; file transfers use SCP to host staging plus `Copy-Item -ToSession` / `-FromSession`. Files and
 directories are supported.
 
-Creation refuses while any `sbx-*` VM exists, serialized by a host mutex. Cleanup turns off and removes the VM and its
+Creation is serialized by a host mutex, so several Windows guests can run side by side. Cleanup turns off and removes the VM and its
 directory under `C:\sandbox\vms`. After `kill -9` of the controller, `sandbox gc --backend hyperv --os windows`
 removes VMs named `sbx-*` whose Notes equal `sandbox-owned`. The backend does not change host features, firewall,
 switches or services, and never boots the base disk.

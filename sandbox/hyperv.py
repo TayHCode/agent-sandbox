@@ -11,9 +11,17 @@ from .backend import Backend, check, give_to_invoker, invoker, sh
 from .settings import hyperv_host
 
 
+DEFAULT_IMAGE = r"C:\sandbox\base\ubuntu-24.04-cloudtools-32g.vhdx"
+
+INSTALL_TOOLS = ('dpkg -s "linux-cloud-tools-$(uname -r)" linux-cloud-tools-virtual >/dev/null 2>&1 || '
+                 '{ apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y '
+                 'linux-cloud-tools-virtual "linux-cloud-tools-$(uname -r)"; }')
+
+
 class HyperV(Backend):
     def __init__(self, host=None):
         self.host = host or hyperv_host()
+        self.pool = self.host
         self.guests = {}
         self.install_attempted = False
 
@@ -50,9 +58,8 @@ class HyperV(Backend):
                     sudo="ALL=(ALL) NOPASSWD:ALL", lock_passwd=True,
                     ssh_authorized_keys=[pubkey])
         config = dict(hostname=vm, manage_etc_hosts=True, users=[user],
-                      ssh_pwauth=False, disable_root=True, package_update=True,
-                      packages=["linux-cloud-tools-virtual"],
-                      runcmd=[["sh", "-c", 'DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-cloud-tools-$(uname -r)"'],
+                      ssh_pwauth=False, disable_root=True,
+                      runcmd=[["sh", "-c", INSTALL_TOOLS],
                               ["udevadm", "control", "--reload-rules"],
                               ["udevadm", "trigger", "--action=add", "--subsystem-match=misc"],
                               ["udevadm", "settle"],
@@ -78,7 +85,7 @@ class HyperV(Backend):
         self._ps("prepare", vm)
         check(sh(["scp", "-o", "BatchMode=yes", str(iso),
                   f"{self.host}:C:/sandbox/vms/{vm}.iso"]), "upload seed")
-        self._ps("create", vm, image=image or r"C:\sandbox\base\ubuntu-24.04.vhdx",
+        self._ps("create", vm, image=image or DEFAULT_IMAGE,
                  cpus=str(cpus), memory_mb=str(memory_mb))
         while True:
             ip = json.loads(self._ps("ip", vm).stdout)
@@ -130,3 +137,6 @@ class HyperV(Backend):
 
     def list_owned(self):
         return json.loads(self._ps("list").stdout)
+
+    def list_leftovers(self):
+        return json.loads(self._ps("leftovers").stdout)

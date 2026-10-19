@@ -1,10 +1,12 @@
 {
-  "exclude": [],
+  "exclude": [
+    "bench/"
+  ],
   "approvals": [],
   "quickstart": [
     {
       "file": "README.md",
-      "line": 23,
+      "line": 25,
       "argv": [
         "python3",
         "-m",
@@ -19,7 +21,7 @@
     },
     {
       "file": "README.md",
-      "line": 24,
+      "line": 26,
       "argv": [
         "python3",
         "-m",

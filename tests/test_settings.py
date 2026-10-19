@@ -30,7 +30,7 @@ class TestSettings(Case):
         monkeypatch.setenv("SANDBOX_TART_HOST", "me@machost")
         calls = []
         Tart(lambda argv, stdin=None: calls.append(argv) or Result(0, b"[]", b"")).list_owned()
-        assert calls[0][:2] == ["ssh", "me@machost"]
+        assert calls[0][0] == "ssh" and calls[0][-2] == "me@machost"
 
     def test_incus_storage_pool_is_optional(self):
         monkeypatch = self.monkeypatch

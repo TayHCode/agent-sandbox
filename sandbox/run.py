@@ -3,11 +3,15 @@ import os
 import time
 from pathlib import Path
 
-from .backend import created_at, new_name
+from .backend import new_name
+from .lease import reap
 
 
-def run(backend, work, image=None, cpus=2, memory_mb=4096, inputs=(), outputs=(), result_dir=None):
-    vm = new_name()
+def run(backend, work, image=None, cpus=None, memory_mb=4096, inputs=(), outputs=(), result_dir=None):
+    return _run(backend, new_name(), work, image, cpus or backend.default_cpus(), memory_mb, inputs, outputs, result_dir)
+
+
+def _run(backend, vm, work, image, cpus, memory_mb, inputs, outputs, result_dir):
     started = time.time()
     result = {"backend": type(backend).__name__, "vm": vm}
     out = Path(result_dir) if result_dir else None
@@ -41,11 +45,5 @@ def run(backend, work, image=None, cpus=2, memory_mb=4096, inputs=(), outputs=()
     return result
 
 
-def gc(backend, older_than_minutes=0):
-    cutoff = time.time() - older_than_minutes * 60
-    removed = []
-    for vm in backend.list_owned():
-        if created_at(vm) <= cutoff:
-            backend.destroy(vm)
-            removed.append(vm)
-    return removed
+def gc(backend, dry_run=False, include_unowned=False):
+    return reap(backend, dry_run, include_unowned)[1]

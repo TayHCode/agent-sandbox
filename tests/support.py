@@ -45,3 +45,11 @@ class Case(unittest.TestCase):
         self.monkeypatch.delenv("SANDBOX_INCUS_STORAGE", raising=False)
         self.tmp_path = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp_path, ignore_errors=True)
+        self.monkeypatch.setenv("SANDBOX_LEASE_DIR", str(self.tmp_path / "leases"))
+        self.addCleanup(self.drop_held)
+
+    @staticmethod
+    def drop_held():
+        from sandbox import lease
+        for vm in list(lease.HELD):
+            lease.release(vm)

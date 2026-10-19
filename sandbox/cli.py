@@ -35,10 +35,11 @@ def main(argv=None):
         s.add_argument("--backend", required=True, choices=["incus", "tart", "hyperv"])
         s.add_argument("--os", dest="os_name", choices=["linux", "windows", "macos"], default="linux")
         if name == "gc":
-            s.add_argument("--older-than", type=float, default=0, metavar="MINUTES")
+            s.add_argument("--dry-run", action="store_true")
+            s.add_argument("--include-unowned", action="store_true")
             continue
         s.add_argument("--image")
-        s.add_argument("--cpus", type=int, default=2)
+        s.add_argument("--cpus", type=int)
         s.add_argument("--memory", type=int, default=4096, metavar="MB")
         s.add_argument("--in", dest="inputs", action="append", default=[], metavar="LOCAL[:REMOTE]")
         s.add_argument("--out", dest="outputs", action="append", default=[], metavar="REMOTE[:LOCAL]")
@@ -51,7 +52,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     backend = load_backend(args.backend, args.os_name)
     if args.cmd == "gc":
-        for vm in gc(backend, args.older_than):
+        for vm in gc(backend, args.dry_run, args.include_unowned):
             print(vm)
         return 0
     command = args.command[1:] if args.cmd == "run" and args.command[:1] == ["--"] else getattr(args, "command", None)
@@ -72,3 +73,7 @@ def main(argv=None):
         print(f"sandbox: {result['vm']} was not cleaned up; run `sandbox gc --backend {args.backend}`", file=sys.stderr)
         return 70
     return result["returncode"]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -18,7 +18,7 @@ ssh -o BatchMode=yes "$SANDBOX_HYPERV_HOST" 'powershell -NoProfile -Command "Get
    scripts/prep-hyperv-image.sh
    ```
 
-   It writes `.scratch/images/ubuntu-24.04.vhdx` with a 24 GB virtual disk; the guest grows its root partition on first boot.
+   It writes `.scratch/images/ubuntu-24.04.vhdx` with a 32 GB virtual disk (a guest cannot be larger than its base, so the base sets every guest's disk size); the guest grows its root partition on first boot.
 
 2. Create the folders and copy the image to the host:
 
@@ -48,4 +48,4 @@ through the host as a jump host; the guest user is `ubuntu`. First boot takes a 
 installs the Hyper-V guest tools. Destroy removes the VM, its disk, the seed ISO and the local key.
 `gc` removes VMs named `sbx-*` whose Notes equal `sandbox-owned`.
 
-`--cpus` and `--memory` (MB) size the VM. Check the host has free RAM before running several at once.
+`--cpus` and `--memory` (MB) size the VM; memory is static (no dynamic ballooning). Check the host has free RAM before running several at once.

@@ -54,6 +54,26 @@ class Backend:
     """One throwaway VM per name. Names are always sbx-<unix time>-<hex>."""
 
     windows = False
+    pool = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        raw_create, raw_destroy = cls.__dict__.get("create"), cls.__dict__.get("destroy")
+        if raw_create:
+            def create(self, vm, *args, **kw):
+                from . import lease
+                lease.hold(vm, self, self.pool)
+                return raw_create(self, vm, *args, **kw)
+            cls.create = create
+        if raw_destroy:
+            def destroy(self, vm):
+                from . import lease
+                raw_destroy(self, vm)
+                lease.release(vm)
+            cls.destroy = destroy
+
+    def default_cpus(self):
+        return 2
 
     def create(self, vm, image, cpus, memory_mb):
         raise NotImplementedError
