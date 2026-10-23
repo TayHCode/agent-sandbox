@@ -1,6 +1,6 @@
 # Contributing
 
-Use Python 3.10 or newer. The tests use the standard library and fake runners; they need no hypervisor:
+Use Python 3.10 or newer on Linux, macOS, or WSL. The tests use the standard library and fake runners; they need no hypervisor:
 
 ```sh
 python3 -m unittest discover -s tests -t . -q

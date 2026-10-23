@@ -18,7 +18,10 @@ only ownership record. Each live run also holds a lock file named after its VM (
 
 ## Quick start for agents
 
-You need Python 3.10 or newer and Git. The sandbox has no Python dependencies and needs no install: clone
+The controller must run Linux, macOS, or Linux under WSL, with Python 3.10 or newer and Git.
+Native Windows controllers are unsupported: every CLI command, including `--help`, prints a platform error and exits 2.
+Windows hosts and guests are supported through Hyper-V over SSH from a supported controller.
+The sandbox has no Python dependencies and needs no install: clone
 https://github.com/TayHCode/agent-sandbox, enter the directory, and run these from its root.
 
 ```sh
@@ -52,7 +55,7 @@ python3 -m sandbox run --backend tart --os macos -- sw_vers
 python3 -m sandbox gc --backend tart
 ```
 
-Run on the Mac itself, or from any machine by setting `export SANDBOX_TART_HOST=user@mac-host` (SSH key login is
+Run on the Mac itself, or from another supported controller by setting `export SANDBOX_TART_HOST=user@mac-host` (SSH key login is
 required, and Tart must be on the Mac's `PATH`, `~/.local/bin` or `/opt/homebrew/bin`). The first run pulls the
 guest image, which is large for macOS (about 25 GB download).
 
@@ -145,7 +148,7 @@ under Apple's license terms.
 - The Windows 11 evaluation disk expires on Microsoft's schedule; build a fresh base from a current ISO.
 - The `agent` command executes whatever commands your model command proposes inside the VM. Treat the VM, not the
   host, as the boundary, and do not give guests credentials.
-- The Hyper-V backend is driven from a Linux or macOS controller. A Windows controller is untested.
+- All backends require a Linux, macOS, or WSL controller. Native Windows controllers are unsupported.
 - This is a small tool, not a security product: the guest is a normal VM with the isolation your hypervisor gives it.
 
 ## Development

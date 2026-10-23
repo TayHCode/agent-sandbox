@@ -2,6 +2,10 @@ import argparse
 import sys
 from pathlib import Path
 
+if sys.platform not in ("linux", "darwin"):
+    print("sandbox controllers require Linux, macOS, or WSL; native Windows is not supported", file=sys.stderr)
+    raise SystemExit(2)
+
 from .agent import drive
 from .run import gc, run
 
