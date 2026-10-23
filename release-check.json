@@ -6,7 +6,7 @@
   "quickstart": [
     {
       "file": "README.md",
-      "line": 25,
+      "line": 28,
       "argv": [
         "python3",
         "-m",
@@ -21,7 +21,7 @@
     },
     {
       "file": "README.md",
-      "line": 26,
+      "line": 29,
       "argv": [
         "python3",
         "-m",
